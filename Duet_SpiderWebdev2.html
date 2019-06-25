@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Canvas tutorial</title>
+    <style>
+      canvas {
+          background-color: Black;
+      }
+    </style>
+    
+  </head>
+  <body>
+    <canvas id="myCanvas" width ="900" height="600"></canvas>
+  </body>
+  <script>
+
+     var canvas = document.getElementById("myCanvas");
+     var ctx = canvas.getContext("2d");
+
+     var cw = canvas.width, ch = canvas.height;
+
+    var circle = [];
+    var obstacle = [];
+
+    var rad2=90,rad=10;
+
+    var x = cw/2,y=ch-140;
+
+    var game_over=0,score=0,pause=0,restart=0,game_win=0;
+
+    var left_arrow=0,right_arrow=0;
+
+    var speed=1;
+
+    var obs_count=0,number_obs=1;
+
+    var obs_interval=null;
+    var anim_start=null;
+    var score_interval=null;
+    var score_inc=0.5;
+    var player_ychange=-0.0005;
+
+
+    localStorage.setItem("highscore",0);
+
+
+      window.addEventListener("keydown" ,function(event){
+          if(event.key=="ArrowRight"||event.key=="Right" || event.key=="D" || event.key=="d") right_arrow=1;
+          else if(event.key=="ArrowLeft"||event.key=="Left"||event.key=="A" || event.key=="a") left_arrow=1;
+        });
+        window.addEventListener("keyup",function(event){
+          if(event.key=="ArrowRight"||event.key=="Right" || event.key=="D" || event.key=="d") right_arrow=0;
+          else if(event.key=="ArrowLeft"||event.key=="Left"||event.key=="A" || event.key=="a") left_arrow=0;
+        });
+
+
+   window.addEventListener("click" , function(event){
+    if (event.x < 80  && event.x > 40 && event.y < ch && event.y > ch -40) {
+       pause=1;
+       pause_game();
+     }
+    
+    else if(event.x < 150 && event.x > 100 && event.y < ch && event.y > ch - 40) {
+      if(pause==1) {
+        resume=1;
+        setTimeout(resume_game,1000);
+     }
+  }
+    else if(event.x < 240 && event.x > 150 && event.y < ch  && event.y > ch - 40) {
+          restart=1;
+          restart_game();
+        }
+          
+  });
+
+  function display_button() {
+    ctx.beginPath();
+    ctx.font="15px Arial";
+    ctx.fillStyle='white';;
+    ctx.fillText("PAUSE",40,ch-20);
+    ctx.fill();
+    ctx.fillText("RESUME",100,ch-20);
+    ctx.fill();
+    ctx.fillText("RESTART",170,ch-20);
+    ctx.fill();
+}
+    
+
+
+  function restart_game() {  
+  ctx.clearRect(0,0,cw,ch);
+  end();
+  home();
+}
+ 
+ function pause_game(){
+    cancelAnimationFrame(anim_start);
+    clearInterval(obs_interval);
+    clearInterval(score_interval);
+    ctx.beginPath();
+    ctx.font="15px Arial";
+    ctx.fillStyle="red";
+    ctx.fillText("GAME PAUSED",cw/2,ch/2);
+ }
+
+
+function resume_game() { 
+   if(pause==1){    
+    pause=0;
+    obs_interval = setInterval(create_obs,1000/number_obs);
+    score_interval = setInterval(score_increase,1000/score_inc);
+    game_loop();
+      resume=0;
+    }
+  }
+ 
+    
+ function Obstacle(x, y,color,width,height) {
+
+   this.x=x;
+   this.y=y; 
+   this.width=width;
+   this.height=height;
+   this.color=color;
+   
+   this.draw_obs = function() {
+                     ctx.beginPath();
+                     ctx.fillRect(this.x,this.y,this.width,this.height);
+                     ctx.fillStyle = this.color;
+                     ctx.fill();
+                     ctx.closePath();
+                    }
+    
+   this.move = function() {
+                   this.y+=speed;
+                   this.draw_obs();
+               }
+   
+ }
+ 
+
+ function Circle(x,y,color1,color2) {
+   this.x=x;
+   this.y=y;
+   this.color1=color1;
+   this.color2=color2;  
+   this.dtheta=0;
+
+
+   this.draw_circles = function () {
+                         ctx.beginPath();
+                         ctx.arc(this.x,this.y,rad2,0,Math.PI*2);
+                         ctx.strokeStyle="white";
+                         ctx.stroke();
+                         
+                         ctx.beginPath();
+                         ctx.arc(this.x1, this.y1,rad,0,Math.PI*2);
+                         ctx.fillStyle=this.color1;
+                         ctx.fill();
+                         
+                         ctx.beginPath();
+                         ctx.arc(this.x2, this.y2,rad,0,Math.PI*2);
+                         ctx.fillStyle=this.color2;
+                         ctx.fill(); 
+                         ctx.closePath();
+               }
+   this.move=function()  {
+
+             if(right_arrow==1)
+               this.dtheta+=0.1;
+             else if(left_arrow==1)
+              this.dtheta-=0.1;
+
+             this.x1=this.x + rad2*Math.cos(10 + this.dtheta);
+             this.y1=this.y + rad2*Math.sin(10 + this.dtheta);
+             this.x2=this.x + rad2*Math.cos(10 + Math.PI + this.dtheta);
+             this.y2=this.y + rad2*Math.sin(10 + Math.PI + this.dtheta);
+
+             this.y+=player_ychange;           // player position change(move up)
+             player_ychange-=0.00025;
+             
+             this.draw_circles();
+        }
+                   
+ 
+  this.collide = 
+  function(obs) {
+              
+       if(this.x1 - rad < obs.x + obs.width  && this.x1 + rad > obs.x  && this.y1 - rad < obs.y + obs.height && this.y1 + rad > obs.y) {
+        game_over=1;
+        return 1;
+      }
+      else if(this.x2 - rad < obs.x + obs.width  && this.x2 + rad > obs.x  && this.y2 - rad < obs.y + obs.height && this.y2 + rad > obs.y) {
+         game_over=1;
+          return 1;
+      }
+    }
+    }
+
+function score_increase () {
+      score+=3;
+   }
+
+  function display_score() {
+        ctx.fillStyle='white';
+        ctx.font="20px Arial";
+        ctx.textAlign='center';
+        ctx.fillText("SCORE: "+ score,cw-80,20);
+      }
+
+  function player_score() {
+
+    if(score>Number(localStorage.getItem("highscore")))
+      localStorage.setItem("highscore",score);
+
+
+    ctx.font="25px Arial";
+    ctx.fillStyle='white';
+    if(game_win!=1) {
+    ctx.fillText("GAME OVER",cw/2 - 30,ch/2-30);
+   }
+  else {
+    ctx.fillText("YOU WON!!",cw/2 - 30,ch/2-30);
+   }
+
+    ctx.font="15px Arial";
+    ctx.fillStyle='white';
+    ctx.fillText("YOUR SCORE:" + score,cw/2 - 30,ch/2);
+    ctx.fillText("HIGHEST SCORE: " + localStorage.getItem("highscore"),cw/2-30 ,ch/2+40);
+    ctx.font="10px Arial";
+    ctx.fillText("CLICK TO END",cw/2 + 50,ch/2 + 80);
+    window.addEventListener("click",home);
+  }
+
+
+  function create_obs () {
+    var min=cw/2 - 150;
+    var max=cw/2 + 150;  
+    var random_x = Math.floor(Math.random() * (+max - +min)) + +min;
+    min=10;
+    max=50; 
+    var height_obs = Math.floor(Math.random() * (+max - +min)) + +min;
+
+    speed+=0.1;
+    obstacle.push(new Obstacle(random_x,0, "brown", rad2,height_obs));
+    obs_count++;
+  }
+
+function end() {
+        ctx.clearRect(0,0,cw,ch);
+        cancelAnimationFrame(anim_start);
+        clearInterval(obs_interval);
+        clearInterval(score_interval);
+             obstacle=[];
+             circle=[];
+        speed=1;
+        if(restart!=1)
+        player_score();
+    }
+
+function game_loop () {
+        if(game_over==0) {
+          anim_start = requestAnimationFrame(game_loop);
+
+        ctx.clearRect(0,0,cw,ch);
+        display_score();
+        display_button();
+
+        circle[0].move();
+        if(circle[0].y-rad2 == 0) {
+           game_win=1;
+           end();
+         }
+        for(var j = 0; j < obs_count ; j++) {
+          if(circle[0].collide(obstacle[j])==1) {
+            end();
+          }
+           obstacle[j].move();
+        }
+      }
+    }
+
+    function start() {
+    window.removeEventListener("click",start);
+    circle = [];
+    obs_count=0;
+    speed=1;
+    number_obs=0.3;
+    score_inc=1;
+    circle.push(new Circle(x,y,"red","blue"));
+    game_over=0;
+    score=0;
+    pause=0;
+    restart=0;
+    game_win=0;
+    player_ychange = -0.0005;
+    obstacle = [];
+    create_obs();
+    obs_interval = setInterval(create_obs,1000/number_obs);
+    score_increase();
+    score_interval = setInterval(score_increase,1000/score_inc);
+    score_inc+=0.1;
+    number_obs+=0.05;
+    game_loop();
+  }
+
+
+   function home () {
+   window.removeEventListener("click",home);
+    ctx.clearRect(0,0,cw,ch);
+    ctx.fillStyle='white';
+    ctx.font="20px Arial";
+    ctx.textAlign='center';
+    ctx.fillText("CLICK TO START",cw/2,ch/2);
+    window.addEventListener("click",start);
+}
+  home();
+
+</script>
+</html>
